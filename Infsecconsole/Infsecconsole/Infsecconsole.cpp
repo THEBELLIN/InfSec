@@ -2,7 +2,7 @@
 #include <math.h>
 using namespace std;
 
-#define subkey(i) subkeys+(i*5);
+#define SUBKEY(i) (subkeys+(i*5))
 #define MALLOC(n, type) ((type *) malloc (n * sizeof(type)))
 
 int n = 5;
@@ -30,7 +30,16 @@ int main()
     int* key = MALLOC(9 , int);
     int* subkeys = MALLOC(6 * 5, int); //member i, j is subkeys[i*5+j]
     keygen(key, subkeys);
+    cout << "key: ";
+    printarray(key, 9);
+    cout << "plaintext: ";
+    printarray(plaintext, 8);
     aes_linear_enc(plaintext, key, subkeys);
+    cout << "encrypted plaintext: ";
+    printarray(plaintext, 8);
+    //cout << "decryption" << endl;
+    aes_linear_dec(plaintext, key, subkeys);
+    cout << "decrypted plaintext: ";
     printarray(plaintext, 8);
     free(key);
     free(subkeys);
@@ -39,9 +48,10 @@ int main()
 
 void keygen(int* key, int* subkeys)
 {
-    /*//key generation
+    //key generation
     double kk;
     int k;
+    srand(time(NULL));
 
     for (int i = 1; i <9; i++)
     {
@@ -50,7 +60,7 @@ void keygen(int* key, int* subkeys)
         key[i] = k;
     }
     key[0]=0;
-    */
+    /*
     key[0] = 0;
     key[1] = 1;
     key[2] = 0;
@@ -60,7 +70,7 @@ void keygen(int* key, int* subkeys)
     key[6] = 0;
     key[7] = 0;
     key[8] = 0;
-
+    */
     //subkeys
     subkeys[0] = 0;
     subkeys[1] = key[1];
@@ -99,28 +109,44 @@ void aes_linear_enc(int* plaintext, int* key, int* subkeys)
     for (int i = 0; i < n - 1; i++)
     {
         keysum(plaintext, subkeys+(i*5));
+        //printarray(plaintext, 8);
         substitution(plaintext);
+        //printarray(plaintext, 8);
         transposition(plaintext);
+        //printarray(plaintext, 8);
         linear_function(plaintext);
+        //printarray(plaintext, 8);
     }
     keysum(plaintext, subkeys+((n - 1)*5));
+    //printarray(plaintext, 8);
     substitution(plaintext);
+    //printarray(plaintext, 8);
     transposition(plaintext);
+    //printarray(plaintext, 8);
     keysum(plaintext, subkeys+(n*5));
+    //printarray(plaintext, 8);
 }
 
 void aes_linear_dec(int* cyphertext, int* key, int* subkeys)
 {
     keysum_inv(cyphertext, subkeys + (n * 5));
+    //printarray(cyphertext, 8);
     transposition_inv(cyphertext);
+    //printarray(cyphertext, 8);
     substitution_inv(cyphertext);
+    //printarray(cyphertext, 8);
     keysum_inv(cyphertext, subkeys + ((n - 1) * 5));
+    //printarray(cyphertext, 8);
     for (int i = n - 2; i >= 0; i--)
     {
         linear_function_inv(cyphertext);
+        //printarray(cyphertext, 8);
         transposition_inv(cyphertext);
+        //printarray(cyphertext, 8);
         substitution_inv(cyphertext);
+        //printarray(cyphertext, 8);
         keysum_inv(cyphertext, subkeys + (i * 5));
+        //printarray(cyphertext, 8);
     }
 }
 
@@ -151,16 +177,20 @@ void linear_function_inv(int* text)
     double textcopy[8];
     for (int i = 0; i < 8; i++)
     {
+        if (text[i] % 2 != 0)
+        {
+            text[i] += p;
+        }
         textcopy[i] = text[i];
     }
-    text[0] = (textcopy[0] * 7 / 9) + (textcopy[4] * -5 / 9);
-    text[1] = (textcopy[1] * 7 / 9) + (textcopy[5] * -5 / 9);
-    text[2] = (textcopy[2] * 7 / 9) + (textcopy[6] * -5 / 9);
-    text[3] = (textcopy[3] * 7 / 9) + (textcopy[7] * -5 / 9);
-    text[4] = (textcopy[0] * -1 / 9) + (textcopy[4] * 2 / 9);
-    text[5] = (textcopy[1] * -1 / 9) + (textcopy[5] * 2 / 9);
-    text[6] = (textcopy[2] * -1 / 9) + (textcopy[6] * 2 / 9);
-    text[7] = (textcopy[3] * -1 / 9) + (textcopy[7] * 2 / 9);
+    text[0] = 2 * textcopy[0] + 8 * textcopy[4];
+    text[1] = 2 * textcopy[1] + 8 * textcopy[5];
+    text[2] = 2 * textcopy[2] + 8 * textcopy[6];
+    text[3] = 2 * textcopy[3] + 8 * textcopy[7];
+    text[4] = 6 * textcopy[0] + 10 * textcopy[4];
+    text[5] = 6 * textcopy[1] + 10 * textcopy[5];
+    text[6] = 6 * textcopy[2] + 10 * textcopy[6];
+    text[7] = 6 * textcopy[3] + 10 * textcopy[7];
 
     for (int i = 0; i < 8; i++)
     {
@@ -194,11 +224,33 @@ void substitution(int* text)
     }
 }
 
-void keysum(int* text, int* key)
+void substitution_inv(int* text)
 {
     for (int i = 0; i < 8; i++)
     {
-        text[i] = (text[i] + key[(i % 4 + 1)]) % p;
+        if (text[i] % 2 != 0)
+        {
+            text[i] += p;
+        }
+        text[i] = (text[i] / 2) % p;
+    }
+}
+
+void keysum(int* text, int* subkey)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        //cout << "summing index " << (i % 4 + 1)<< endl;
+        //cout << "summing with " << subkey[(i % 4 + 1)] << endl;
+        text[i] = (text[i] + subkey[(i % 4 + 1)]) % p;
+    }
+}
+
+void keysum_inv(int* text, int* subkey)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        text[i] = (text[i] - subkey[(i % 4 + 1)]) % p;
     }
 }
 

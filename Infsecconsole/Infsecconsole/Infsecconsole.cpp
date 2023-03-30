@@ -1,5 +1,6 @@
 #include <iostream>
 #include <math.h>
+#include <map>
 using namespace std;
 
 #define SUBKEY(i) (subkeys+(i*5))
@@ -12,6 +13,8 @@ int lk = 4;
 
 void aes_linear_enc(int*, int*, int*);
 void aes_linear_dec(int*, int*, int*);
+void aes_nearlinear_enc(int*, int*, int*);
+void aes_nearlinear_dec(int*, int*, int*);
 void substitution(int*);
 void transposition(int*);
 void linear_function(int*);
@@ -23,6 +26,8 @@ void keysum_inv(int*, int*);
 void printarray(int*, int);
 void swap(int*, int*);
 void keygen(int*, int*);
+void substitution2(int*);
+void substitution2_inv(int*);
 
 int main()
 {
@@ -34,11 +39,11 @@ int main()
     printarray(key, 9);
     cout << "plaintext: ";
     printarray(plaintext, 8);
-    aes_linear_enc(plaintext, key, subkeys);
+    aes_nearlinear_enc(plaintext, key, subkeys);
     cout << "encrypted plaintext: ";
     printarray(plaintext, 8);
     //cout << "decryption" << endl;
-    aes_linear_dec(plaintext, key, subkeys);
+    aes_nearlinear_dec(plaintext, key, subkeys);
     cout << "decrypted plaintext: ";
     printarray(plaintext, 8);
     free(key);
@@ -61,7 +66,7 @@ void keygen(int* key, int* subkeys)
     }
     key[0]=0;
     /*
-    key[0] = 0;
+    key[0] = 0; //dummy value, just 0 padding to have array 1 indexed
     key[1] = 1;
     key[2] = 0;
     key[3] = 0;
@@ -69,8 +74,8 @@ void keygen(int* key, int* subkeys)
     key[5] = 0;
     key[6] = 0;
     key[7] = 0;
-    key[8] = 0;
-    */
+    key[8] = 0;*/
+    
     //subkeys
     subkeys[0] = 0;
     subkeys[1] = key[1];
@@ -150,6 +155,52 @@ void aes_linear_dec(int* cyphertext, int* key, int* subkeys)
     }
 }
 
+void aes_nearlinear_enc(int* plaintext, int* key, int* subkeys)
+{
+    for (int i = 0; i < n - 1; i++)
+    {
+        keysum(plaintext, subkeys + (i * 5));
+        //printarray(plaintext, 8);
+        substitution2(plaintext);
+        //printarray(plaintext, 8);
+        transposition(plaintext);
+        //printarray(plaintext, 8);
+        linear_function(plaintext);
+        //printarray(plaintext, 8);
+    }
+    keysum(plaintext, subkeys + ((n - 1) * 5));
+    //printarray(plaintext, 8);
+    substitution2(plaintext);
+    //printarray(plaintext, 8);
+    transposition(plaintext);
+    //printarray(plaintext, 8);
+    keysum(plaintext, subkeys + (n * 5));
+    //printarray(plaintext, 8);
+}
+
+void aes_nearlinear_dec(int* cyphertext, int* key, int* subkeys)
+{
+    keysum_inv(cyphertext, subkeys + (n * 5));
+    //printarray(cyphertext, 8);
+    transposition_inv(cyphertext);
+    //printarray(cyphertext, 8);
+    substitution2_inv(cyphertext);
+    //printarray(cyphertext, 8);
+    keysum_inv(cyphertext, subkeys + ((n - 1) * 5));
+    //printarray(cyphertext, 8);
+    for (int i = n - 2; i >= 0; i--)
+    {
+        linear_function_inv(cyphertext);
+        //printarray(cyphertext, 8);
+        transposition_inv(cyphertext);
+        //printarray(cyphertext, 8);
+        substitution2_inv(cyphertext);
+        //printarray(cyphertext, 8);
+        keysum_inv(cyphertext, subkeys + (i * 5));
+        //printarray(cyphertext, 8);
+    }
+}
+
 void linear_function(int* text)
 {
     int textcopy[8];
@@ -177,10 +228,10 @@ void linear_function_inv(int* text)
     double textcopy[8];
     for (int i = 0; i < 8; i++)
     {
-        if (text[i] % 2 != 0)
+        /*if (text[i] % 2 != 0)
         {
             text[i] += p;
-        }
+        }*/
         textcopy[i] = text[i];
     }
     text[0] = 2 * textcopy[0] + 8 * textcopy[4];
@@ -250,7 +301,7 @@ void keysum_inv(int* text, int* subkey)
 {
     for (int i = 0; i < 8; i++)
     {
-        text[i] = (text[i] - subkey[(i % 4 + 1)]) % p;
+        text[i] = (text[i] - subkey[(i % 4 + 1)] + 11) % p;
     }
 }
 
@@ -259,4 +310,46 @@ void printarray(int* a, int len)
     for (int i = 0; i < len; i++)
         cout << a[i];
     cout << endl;
+}
+
+void substitution2(int* text)
+{
+    map<int, int> m;
+    m[0] = 0;
+    m[1] = 2;
+    m[2] = 4;
+    m[3] = 8;
+    m[4] = 6;
+    m[5] = 10;
+    m[6] = 1;
+    m[7] = 3;
+    m[8] = 5;
+    m[9] = 7;
+    m[10] = 9;
+
+    for (int i = 0; i < 8; i++)
+    {
+        text[i] = m[text[i]];
+    }
+}
+
+void substitution2_inv(int* text)
+{
+    map<int, int> m;
+    m[0] = 0;
+    m[1] = 6;
+    m[2] = 1;
+    m[3] = 7;
+    m[4] = 2;
+    m[5] = 8;
+    m[6] = 4;
+    m[7] = 9;
+    m[8] = 3;
+    m[9] = 10;
+    m[10] = 5;
+
+    for (int i = 0; i < 8; i++)
+    {
+        text[i] = m[text[i]];
+    }
 }
